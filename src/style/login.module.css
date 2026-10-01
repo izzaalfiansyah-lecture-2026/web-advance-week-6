@@ -225,6 +225,25 @@
   border: 1px solid #c3e6cb;
 }
 
+.authSwitch {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.95rem;
+  color: #7f8c8d;
+}
+
+.registerLink {
+  color: #3498db;
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.registerLink:hover {
+  text-decoration: underline;
+  color: #2980b9;
+}
+
 /* Responsive Design */
 @media (max-width: 600px) {
   .container {
