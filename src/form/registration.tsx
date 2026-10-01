@@ -1,7 +1,7 @@
 import { useState } from "react";
 import styles from "../style/registration-form.module.css";
 
-export default function RegistrationForm() {
+export default function RegistrationPage() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -19,31 +19,62 @@ export default function RegistrationForm() {
   const [errors, setErrors] = useState<Record<keyof FormData, string>>(
     {} as any,
   );
+  const [touched, setTouched] = useState<Record<keyof FormData, boolean>>(
+    {} as any,
+  );
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const handleInputChange = (e: any) => {
     const { name, type, value, checked } = e.target;
+    const fieldName = name as keyof FormData;
 
     setFormData((prev) => ({
       ...prev,
       [name]: type == "checkbox" ? checked : value,
     }));
 
-    if (errors[name as keyof FormData]) {
+    if (touched[fieldName]) {
+      const fieldError = validateField(
+        fieldName,
+        type == "checkbox" ? checked : value,
+      );
       setErrors((prev) => ({
         ...prev,
-        [name]: "",
+        [fieldName]: fieldError,
       }));
     }
+  };
+
+  const handleBlur = (e: any) => {
+    const { name, type, value, checked } = e.target;
+
+    setTouched((prev) => ({
+      ...prev,
+      [name]: true,
+    }));
+
+    const fieldError = validateField(
+      name,
+      type == "checkbox" ? checked : value,
+    );
+    setErrors((prev) => ({
+      ...prev,
+      [name]: fieldError,
+    }));
   };
 
   const handleSubmit = (e: any) => {
     e.preventDefault();
 
-    const validationErrors = validateForm(formData);
+    const allTouched: Record<keyof FormData, boolean> = {} as any;
+    Object.keys(formData).map((key) => {
+      const field = key as keyof FormData;
+      allTouched[field] = true;
+    });
+    setTouched(allTouched);
 
-    if (Object.keys(validationErrors).length === 0) {
-      console.log("Form submitted:", formData);
+    if (validateForm()) {
+      console.log("Form submitted successfully", formData);
       setIsSubmitted(true);
 
       setFormData({
@@ -57,56 +88,100 @@ export default function RegistrationForm() {
         phone: "",
         agreeToTerms: false,
       });
-    } else {
-      setErrors(validationErrors);
+      setTouched({} as any);
     }
   };
 
-  const validateForm = (data: typeof formData) => {
-    let errors: Record<any, string> = {};
+  const getPasswordStrength = (password: string) => {
+    if (!password) return { strength: 0, label: "" };
 
-    if (!data.firstName.trim()) {
-      errors.firstName = "First name is required";
-    }
+    let strength = 0;
+    if (password.length > 8) strength += 1;
+    if (/[a-z]/.test(password)) strength += 1;
+    if (/[A-Z]/.test(password)) strength += 1;
+    if (/[0-9]/.test(password)) strength += 1;
+    if (/[^A-Za-z0-9]/.test(password)) strength += 1;
 
-    if (!data.lastName.trim()) {
-      errors.lastName = "First name is required";
-    }
-
-    if (!data.email.trim()) {
-      errors.email = "First name is required";
-    }
-
-    if (!data.password.trim()) {
-      errors.password = "First name is required";
-    }
-
-    if (!data.confirmPassword.trim()) {
-      errors.confirmPassword = "First name is required";
-    }
-
-    if (data.password !== data.confirmPassword) {
-      errors.confirmPassword = "Passwords d o not match";
-    }
-
-    if (!data.gender) {
-      errors.gender = "Please select your gender";
-    }
-
-    if (!data.dateOfBirth) {
-      errors.dateOfBirth = "Date of birth is required";
-    }
-
-    if (!data.phone.trim()) {
-      errors.phone = "Phone is required";
-    }
-
-    if (!data.agreeToTerms) {
-      errors.agreeToTerms = "You must agree to the terms and conditions";
-    }
-
-    return errors;
+    const labels = [
+      "Very weak",
+      "Weak",
+      "Fair",
+      "Good",
+      "Strong",
+      "Very strong",
+    ];
+    return { strength, label: labels[strength] };
   };
+
+  const validateField = (field: keyof typeof formData, value: any) => {
+    switch (field) {
+      case "firstName":
+        if (!value.trim()) return "First name is required";
+        if (value.length < 2) return "First name must be at least 2 characters";
+        return "";
+      case "lastName":
+        if (!value.trim()) return "Last name is required";
+        if (value.length < 2) return "Last name must be at least 2 characters";
+        return "";
+      case "email":
+        if (!value.trim()) return "Email is required";
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+          return "Please enter a valid email address";
+        return "";
+      case "password":
+        if (!value) return "Password is required";
+        if (value.length < 8) return "Password must be at least 8 characters";
+        if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(value)) {
+          return "Password must contain uppercase, lowercase, and numbers";
+        }
+        return "";
+      case "confirmPassword":
+        if (!value) return "Please confirm your password";
+        if (value !== formData.password) return "Passwords do not match";
+        return "";
+      case "gender":
+        if (!value) return "Please select your gender";
+        return "";
+      case "dateOfBirth":
+        if (!value) return "Date of birth is required";
+        const birthDate = new Date(value);
+        const today = new Date();
+        const age = today.getFullYear() - birthDate.getFullYear();
+        if (age < 13) return "You must be at least 13 years old";
+        return "";
+      case "phone":
+        if (!value.trim()) return "Phone number is required";
+        if (!/^[\+]?[1-9][\d]{0,15}$/.test(value.replace(/[\s\-\(\)]/g, ""))) {
+          return "Please enter a valid phone number";
+        }
+        return "";
+      case "agreeToTerms":
+        if (!value) return "You must agree to the terms and conditions";
+        return "";
+      default:
+        return "";
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors: Record<keyof FormData, any> = {} as any;
+    let isValid = true;
+
+    Object.keys(formData).map((key) => {
+      const field = key as keyof FormData;
+      const error = validateField(field, formData[field]);
+      if (error) {
+        newErrors[field] = error;
+        isValid = false;
+      }
+    });
+
+    setErrors(newErrors);
+
+    return isValid;
+  };
+
+  const passwordStrength = getPasswordStrength(formData.password);
 
   if (isSubmitted) {
     return (
@@ -143,6 +218,7 @@ export default function RegistrationForm() {
               name="firstName"
               value={formData.firstName}
               onChange={handleInputChange}
+              onBlur={handleBlur}
               className={`${styles.input} ${errors.firstName ? styles.error : ""}`}
               placeholder="Enter your first name"
             />
@@ -160,6 +236,7 @@ export default function RegistrationForm() {
               name="lastName"
               value={formData.lastName}
               onChange={handleInputChange}
+              onBlur={handleBlur}
               className={`${styles.input} ${errors.lastName ? styles.error : ""}`}
               placeholder="Enter your last name"
             />
@@ -179,6 +256,7 @@ export default function RegistrationForm() {
             name="email"
             value={formData.email}
             onChange={handleInputChange}
+            onBlur={handleBlur}
             className={`${styles.input} ${errors.email ? styles.error : ""}`}
             placeholder="your.email@example.com"
           />
@@ -204,13 +282,70 @@ export default function RegistrationForm() {
               name="password"
               value={formData.password}
               onChange={handleInputChange}
+              onBlur={handleBlur}
               className={`${styles.input} ${errors.password ? styles.error : ""}`}
               placeholder="Create a password"
             />
+            {formData.password && (
+              <div style={{ marginTop: "0.5rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "2px",
+                    marginBottom: "0.25rem",
+                  }}
+                >
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      style={{
+                        flex: 1,
+                        height: "4px",
+                        backgroundColor:
+                          i <= passwordStrength.strength
+                            ? [
+                                "#e74c3c",
+                                "#e67e22",
+                                "#f1c40f",
+                                "#2ecc71",
+                                "#27ae60",
+                              ][i - 1]
+                            : "#ecf0f1",
+                        borderRadius: "2px",
+                      }}
+                    />
+                  ))}
+                </div>
+                <span
+                  style={{
+                    fontSize: "0.8rem",
+                    color:
+                      passwordStrength.strength >= 4
+                        ? "#27ae60"
+                        : passwordStrength.strength >= 3
+                          ? "#f1c40f"
+                          : "#e74c3c",
+                  }}
+                >
+                  Strength: {passwordStrength.label}
+                </span>
+              </div>
+            )}
             {errors.password && (
               <span style={{ color: "#e74c3c", fontSize: "0.8rem" }}>
                 {errors.password}
               </span>
+            )}
+            {formData.password && !errors.password && (
+              <div
+                style={{
+                  fontSize: "0.8rem",
+                  color: "#27ae60",
+                  marginTop: "0.5rem",
+                }}
+              >
+                ✓ Password meets requirements
+              </div>
             )}
           </div>
 
@@ -221,6 +356,7 @@ export default function RegistrationForm() {
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleInputChange}
+              onBlur={handleBlur}
               className={`${styles.input} ${errors.confirmPassword ? styles.error : ""}`}
               placeholder="Confirm your password"
             />
@@ -229,7 +365,60 @@ export default function RegistrationForm() {
                 {errors.confirmPassword}
               </span>
             )}
+            {formData.confirmPassword &&
+              formData.password === formData.confirmPassword && (
+                <div
+                  style={{
+                    fontSize: "0.8rem",
+                    color: "#27ae60",
+                    marginTop: "0.5rem",
+                  }}
+                >
+                  ✓ Passwords match
+                </div>
+              )}
           </div>
+        </div>
+
+        <div
+          style={{
+            background: "#f8f9fa",
+            padding: "1rem",
+            borderRadius: "8px",
+            fontSize: "0.9rem",
+          }}
+        >
+          <strong>Password must contain:</strong>
+          <ul style={{ margin: "0.5rem 0 0 1rem", padding: 0 }}>
+            <li
+              style={{
+                color: formData.password.length >= 8 ? "#27ae60" : "#7f8c8d",
+              }}
+            >
+              At least 8 characters
+            </li>
+            <li
+              style={{
+                color: /[a-z]/.test(formData.password) ? "#27ae60" : "#7f8c8d",
+              }}
+            >
+              One lowercase letter
+            </li>
+            <li
+              style={{
+                color: /[A-Z]/.test(formData.password) ? "#27ae60" : "#7f8c8d",
+              }}
+            >
+              One uppercase letter
+            </li>
+            <li
+              style={{
+                color: /[0-9]/.test(formData.password) ? "#27ae60" : "#7f8c8d",
+              }}
+            >
+              One number
+            </li>
+          </ul>
         </div>
 
         {/* Personal Information */}
@@ -246,6 +435,7 @@ export default function RegistrationForm() {
               name="gender"
               value={formData.gender}
               onChange={handleInputChange}
+              onBlur={handleBlur}
               className={`${styles.select} ${errors.gender ? styles.error : ""}`}
             >
               <option value="">Select gender</option>
@@ -267,6 +457,7 @@ export default function RegistrationForm() {
               name="dateOfBirth"
               value={formData.dateOfBirth}
               onChange={handleInputChange}
+              onBlur={handleBlur}
               className={`${styles.input} ${errors.dateOfBirth ? styles.error : ""}`}
             />
             {errors.dateOfBirth && (
@@ -285,6 +476,7 @@ export default function RegistrationForm() {
             name="phone"
             value={formData.phone}
             onChange={handleInputChange}
+            onBlur={handleBlur}
             className={`${styles.input} ${errors.phone ? styles.error : ""}`}
             placeholder="+1 234 567 8900"
           />
@@ -303,6 +495,7 @@ export default function RegistrationForm() {
               name="agreeToTerms"
               checked={formData.agreeToTerms}
               onChange={handleInputChange}
+              onBlur={handleBlur}
               className={styles.checkbox}
             />
             <span className={styles.checkboxLabel}>

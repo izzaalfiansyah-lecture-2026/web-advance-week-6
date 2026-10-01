@@ -1,9 +1,10 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import RegistrationForm from "./form/registration.tsx";
+import { RouterProvider } from "react-router/dom";
+import { router } from "./router.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <RegistrationForm />
+    <RouterProvider router={router} />
   </StrictMode>,
 );
